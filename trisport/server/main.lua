@@ -6,11 +6,12 @@ local TOTAL_CHECKPOINTS = #Config.Checkpoints
 local function initRooms()
     for i = 1, Config.MaxRooms do
         rooms[i] = {
-            state       = 'closed',   
-            players     = {},         
-            finishOrder = {},         
+            state       = 'closed',
+            players     = {},
+            finishOrder = {},
             playerCount = 0,
             raceStartTime = 0,
+            gen         = 0,
         }
         finishCounters[i] = 0
     end
@@ -133,6 +134,7 @@ function OpenRoom(roomId)
     room.playerCount    = 0
     room.raceStartTime  = 0
     room.nextSpawnIndex = 0
+    room.gen            = (room.gen or 0) + 1
     finishCounters[roomId] = 0
     print('[Trisport] Room ' .. roomId .. ' opened')
     return true
@@ -204,10 +206,8 @@ function AddPlayerToRoom(source, roomId)
     room.playerCount = room.playerCount + 1
     SetPlayerRoutingBucket(source, getBucket(roomId))
     TriggerClientEvent('trisport:joinRoom', source, {
-        roomId     = roomId,
-        spawnPos   = { x = spawnPos.x, y = spawnPos.y, z = spawnPos.z, w = spawnPos.w },
-        vehicle    = Config.RaceVehicle,
-        vehicleColor = Config.VehicleColor,
+        roomId   = roomId,
+        spawnPos = { x = spawnPos.x, y = spawnPos.y, z = spawnPos.z, w = spawnPos.w },
     })
     notify(source, string.format(Config.Messages.joined, roomId))
     print('[Trisport] Player ' .. GetPlayerName(source) .. ' joined room ' .. roomId .. ' (' .. room.playerCount .. '/' .. Config.MaxPlayersPerRoom .. ')')
@@ -248,12 +248,13 @@ function StartRace(roomId)
     if not room or room.state ~= 'open' then return end
     if room.playerCount == 0 then return end
     room.state = 'countdown'
+    local myGen = room.gen
     notifyRoom(roomId, string.format(Config.Messages.raceStartingSoon, Config.CountdownSeconds))
     for serverId, _ in pairs(room.players) do
         TriggerClientEvent('trisport:countdown', serverId, Config.CountdownSeconds)
     end
     SetTimeout(Config.CountdownSeconds * 1000, function()
-        if room.state ~= 'countdown' then return end
+        if room.state ~= 'countdown' or room.gen ~= myGen then return end
         room.state = 'racing'
         room.raceStartTime = os.time()
         local startTime = room.raceStartTime
@@ -263,16 +264,13 @@ function StartRace(roomId)
             data.checkpoint     = 0
             data.checkpointTime = 0
             data.finished       = false
-            TriggerClientEvent('trisport:raceStart', serverId, {
-                checkpoints  = Config.Checkpoints,
-                boostMarkers = Config.BoostEnabled and Config.BoostMarkers or {},
-            })
+            TriggerClientEvent('trisport:raceStart', serverId)
         end
         notifyRoom(roomId, Config.Messages.raceStarted)
         print('[Trisport] Race started in room ' .. roomId .. ' with ' .. room.playerCount .. ' players')
         StartPositionBroadcast(roomId)
         SetTimeout(Config.RaceDurationSeconds * 1000, function()
-            if room.state == 'racing' then
+            if room.state == 'racing' and room.gen == myGen then
                 EndRace(roomId)
             end
         end)

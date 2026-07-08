@@ -112,7 +112,7 @@ AddEventHandler('trisport:joinRoom', function(data)
     fullCleanup()
     inRoom = true
     roomId = data.roomId
-    spawnVehicle(data.vehicle, data.spawnPos, data.vehicleColor, function(veh)
+    spawnVehicle(Config.RaceVehicle, data.spawnPos, Config.VehicleColor, function(veh)
         raceVehicle = veh
         FreezeEntityPosition(veh, true)
         SetEntityInvincible(veh, true)
@@ -143,8 +143,8 @@ AddEventHandler('trisport:countdown', function(seconds)
     end
 end)
 RegisterNetEvent('trisport:raceStart')
-AddEventHandler('trisport:raceStart', function(data)
-    checkpoints = data.checkpoints
+AddEventHandler('trisport:raceStart', function()
+    checkpoints = Config.Checkpoints
     totalCp     = #checkpoints
     currentCp   = 0
     inRace      = true

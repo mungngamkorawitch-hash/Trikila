@@ -6,10 +6,10 @@ local boostCooldown   = 0
 local boostMarkers    = {}
 local collectedBoosts = {}
 RegisterNetEvent('trisport:raceStart')
-AddEventHandler('trisport:raceStart', function(data)
+AddEventHandler('trisport:raceStart', function()
     if not Config.BoostEnabled then return end
     isRacing        = true
-    boostMarkers    = data.boostMarkers or {}
+    boostMarkers    = Config.BoostMarkers or {}
     boostCharges    = 0
     boostActive     = false
     boostEndTime    = 0
