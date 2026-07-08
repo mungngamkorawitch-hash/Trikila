@@ -1,4 +1,6 @@
 local ESX = exports['es_extended']:getSharedObject()
+---@param source number server ID
+---@param position number finish position
 function GiveRewards(source, position)
     if not Config.Rewards[position] then return end
     local xPlayer = ESX.GetPlayerFromId(source)

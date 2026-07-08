@@ -16,7 +16,7 @@ RegisterCommand('triout', function(source, args, rawCommand)
         TriggerClientEvent('trisport:notify', source, Config.Messages.notInRoom)
         return
     end
-    RemovePlayerFromRoom(source, false)
+    RemovePlayerFromRoom(source)
     TriggerClientEvent('trisport:notify', source, Config.Messages.leftRoom)
 end, false)
 RegisterCommand('tristart', function(source, args, rawCommand)
@@ -205,6 +205,6 @@ AddEventHandler('trisport:requestLeave', function()
         TriggerClientEvent('trisport:notify', source, Config.Messages.notInRoom)
         return
     end
-    RemovePlayerFromRoom(source, false)
+    RemovePlayerFromRoom(source)
     TriggerClientEvent('trisport:notify', source, Config.Messages.leftRoom)
 end)
