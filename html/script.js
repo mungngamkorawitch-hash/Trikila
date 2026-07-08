@@ -206,7 +206,7 @@
             handler(data);
         }
     });
-    fetch('https:
+    fetch(`https://${GetParentResourceName()}/ready`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),

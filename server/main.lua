@@ -17,9 +17,13 @@ local function initRooms()
     print('[Trisport] Initialized ' .. Config.MaxRooms .. ' rooms')
 end
 initRooms()
+---@param roomId number
+---@return number
 local function getBucket(roomId)
     return Config.RoutingBucketOffset + roomId
 end
+---@param playerIndex number (0-based)
+---@return vector4 position+heading
 local function getSpawnPosition(playerIndex)
     local origin = Config.SpawnOrigin
     local cols   = Config.SpawnColumns
@@ -40,9 +44,13 @@ local function getSpawnPosition(playerIndex)
         origin.w
     )
 end
+---@param source number server ID
+---@param msg string
 local function notify(source, msg)
     TriggerClientEvent('trisport:notify', source, msg)
 end
+---@param roomId number
+---@param msg string
 local function notifyRoom(roomId, msg)
     local room = rooms[roomId]
     if not room then return end
@@ -50,10 +58,13 @@ local function notifyRoom(roomId, msg)
         notify(serverId, msg)
     end
 end
+---@param msg string
 local function notifyAll(msg)
     if not Config.AnnounceGlobally then return end
     TriggerClientEvent('trisport:notify', -1, msg)
 end
+---@param ms number
+---@return string
 local function formatTime(ms)
     local totalSeconds = ms / 1000
     local mins = math.floor(totalSeconds / 60)
@@ -61,6 +72,8 @@ local function formatTime(ms)
     local cents = math.floor((ms % 1000) / 10)
     return string.format('%02d:%02d.%02d', mins, secs, cents)
 end
+---@param roomId number
+---@return table sorted list of {serverId, checkpoint, time, name}
 local function calculatePositions(roomId)
     local room = rooms[roomId]
     if not room then return {} end
@@ -83,6 +96,7 @@ local function calculatePositions(roomId)
     end)
     return positions
 end
+---@param roomId number
 local function broadcastPositions(roomId)
     local room = rooms[roomId]
     if not room or room.state ~= 'racing' then return end
@@ -117,6 +131,8 @@ local function broadcastPositions(roomId)
         })
     end
 end
+---@param roomId number
+---@return boolean success
 function OpenRoom(roomId)
     local room = rooms[roomId]
     if not room then return false end
@@ -131,6 +147,7 @@ function OpenRoom(roomId)
     print('[Trisport] Room ' .. roomId .. ' opened')
     return true
 end
+---@param roomId number
 function CloseRoom(roomId)
     local room = rooms[roomId]
     if not room then return end
@@ -152,6 +169,9 @@ function CloseRoom(roomId)
     end)
     print('[Trisport] Room ' .. roomId .. ' closed')
 end
+---@param source number server ID
+---@param roomId number
+---@return boolean success
 function AddPlayerToRoom(source, roomId)
     local room = rooms[roomId]
     if not room then
@@ -205,6 +225,7 @@ function AddPlayerToRoom(source, roomId)
     print('[Trisport] Player ' .. GetPlayerName(source) .. ' joined room ' .. roomId .. ' (' .. room.playerCount .. '/' .. Config.MaxPlayersPerRoom .. ')')
     return true
 end
+---@param source number server ID
 function RemovePlayerFromRoom(source)
     local playerData = playerRooms[source]
     if not playerData then return end
@@ -220,6 +241,7 @@ function RemovePlayerFromRoom(source)
     })
     playerRooms[source] = nil
 end
+---@param roomId number
 function StartRace(roomId)
     local room = rooms[roomId]
     if not room or room.state ~= 'open' then return end
@@ -252,6 +274,7 @@ function StartRace(roomId)
         end)
     end)
 end
+---@param roomId number
 function EndRace(roomId)
     local room = rooms[roomId]
     if not room then return end
@@ -281,6 +304,7 @@ function EndRace(roomId)
         end
     end)
 end
+---@param roomId number
 function StartPositionBroadcast(roomId)
     local room = rooms[roomId]
     local function tick()
