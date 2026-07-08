@@ -93,6 +93,7 @@ Config.ShowLeaderboardTop    = 5          -- แสดงอันดับ Lead
 Config.UIUpdateInterval      = 1000       -- อัปเดตข้อมูล UI ทุกๆ กี่ ms
 Config.UseCustomSounds       = false      -- ใช้เสียงซาวด์เอฟเฟกต์ทำเอง true หรือเสียงเกมเดิม false
 Config.AdminPermission       = 'trisport.admin'  -- สิทธิ์สำหรับ Admin ในการใช้คำสั่ง
+Config.AnnounceGlobally      = true       -- ประกาศเปิด/จบกิจกรรมให้ผู้เล่นทั้งเซิร์ฟ (false = แจ้งเฉพาะคนในห้อง)
 
 Config.Messages = {
     joined           = '🏁 เข้าร่วมห้องแข่ง %d แล้ว! รอกิจกรรมเริ่ม...',

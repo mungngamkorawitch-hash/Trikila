@@ -16,7 +16,7 @@ RegisterCommand('triout', function(source, args, rawCommand)
         TriggerClientEvent('trisport:notify', source, Config.Messages.notInRoom)
         return
     end
-    RemovePlayerFromRoom(source, false)
+    RemovePlayerFromRoom(source)
     TriggerClientEvent('trisport:notify', source, Config.Messages.leftRoom)
 end, false)
 RegisterCommand('tristart', function(source, args, rawCommand)
@@ -40,8 +40,10 @@ RegisterCommand('tristart', function(source, args, rawCommand)
         if source > 0 then
             TriggerClientEvent('trisport:notify', source, string.format(Config.Messages.adminOpened, roomId))
         end
-        TriggerClientEvent('trisport:notify', -1,
-            string.format(Config.Messages.eventOpening, Config.MaxPlayersPerRoom))
+        if Config.AnnounceGlobally then
+            TriggerClientEvent('trisport:notify', -1,
+                string.format(Config.Messages.eventOpening, Config.MaxPlayersPerRoom))
+        end
         SetTimeout(Config.JoinWindowSeconds * 1000, function()
             if rooms[roomId].state == 'open' and rooms[roomId].playerCount > 0 then
                 StartRace(roomId)
@@ -93,8 +95,10 @@ RegisterCommand('triopen', function(source, args, rawCommand)
     for i = 1, Config.MaxRooms do
         OpenRoom(i)
     end
-    TriggerClientEvent('trisport:notify', -1,
-        string.format(Config.Messages.eventOpening, Config.MaxPlayersPerRoom))
+    if Config.AnnounceGlobally then
+        TriggerClientEvent('trisport:notify', -1,
+            string.format(Config.Messages.eventOpening, Config.MaxPlayersPerRoom))
+    end
     if source > 0 then
         TriggerClientEvent('trisport:notify', source, '✅ เปิดทุกห้องแล้ว')
     end
@@ -137,6 +141,6 @@ AddEventHandler('trisport:requestLeave', function()
         TriggerClientEvent('trisport:notify', source, Config.Messages.notInRoom)
         return
     end
-    RemovePlayerFromRoom(source, false)
+    RemovePlayerFromRoom(source)
     TriggerClientEvent('trisport:notify', source, Config.Messages.leftRoom)
 end)

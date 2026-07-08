@@ -8,7 +8,6 @@ local function initRooms()
         rooms[i] = {
             state       = 'closed',
             players     = {},
-            finishOrder = {},
             playerCount = 0,
             raceStartTime = 0,
             gen         = 0,
@@ -61,6 +60,7 @@ local function notifyRoom(roomId, msg)
 end
 ---@param msg string
 local function notifyAll(msg)
+    if not Config.AnnounceGlobally then return end
     TriggerClientEvent('trisport:notify', -1, msg)
 end
 ---@param seconds number
@@ -101,23 +101,30 @@ local function broadcastPositions(roomId)
     local positions = calculatePositions(roomId)
     local totalPlayers = room.playerCount
     local leaderboard = {}
+    local sigParts = {}
     local topN = math.min(Config.ShowLeaderboardTop, #positions)
     for i = 1, topN do
         local p = positions[i]
+        local timeStr = formatTime(p.time)
         leaderboard[i] = {
             pos  = i,
             name = p.name,
             cp   = p.checkpoint,
-            time = formatTime(p.time),
+            time = timeStr,
         }
+        sigParts[i] = p.serverId .. ':' .. p.checkpoint .. ':' .. timeStr
     end
+    -- ส่ง leaderboard เฉพาะตอน top-N เปลี่ยน (อันดับ/CP/เวลา) client ใช้ค่าเดิมต่อ
+    local sig = table.concat(sigParts, '|')
+    local lbChanged = sig ~= room.lastLbSig
+    room.lastLbSig = sig
     for rank, p in ipairs(positions) do
         TriggerClientEvent('trisport:updatePosition', p.serverId, {
             position    = rank,
             total       = totalPlayers,
             checkpoint  = p.checkpoint,
             totalCp     = TOTAL_CHECKPOINTS,
-            leaderboard = leaderboard,
+            leaderboard = lbChanged and leaderboard or nil,
             raceTime    = formatTime(os.time() - room.raceStartTime),
         })
     end
@@ -130,11 +137,11 @@ function OpenRoom(roomId)
     if room.state ~= 'closed' and room.state ~= 'finished' then return false end
     room.state          = 'open'
     room.players        = {}
-    room.finishOrder    = {}
     room.playerCount    = 0
     room.raceStartTime  = 0
     room.nextSpawnIndex = 0
     room.gen            = (room.gen or 0) + 1
+    room.lastLbSig      = nil
     finishCounters[roomId] = 0
     print('[Trisport] Room ' .. roomId .. ' opened')
     return true
@@ -149,12 +156,11 @@ function CloseRoom(roomId)
     end
     room.state       = 'closed'
     room.players     = {}
-    room.finishOrder = {}
     room.playerCount = 0
     finishCounters[roomId] = 0
     Citizen.CreateThread(function()
         for i, serverId in ipairs(playersToRemove) do
-            RemovePlayerFromRoom(serverId, false)  
+            RemovePlayerFromRoom(serverId)
             if i % 10 == 0 then
                 Citizen.Wait(50) 
             end
@@ -214,24 +220,11 @@ function AddPlayerToRoom(source, roomId)
     return true
 end
 ---@param source number server ID
----@param giveRewards boolean whether to check for rewards
-function RemovePlayerFromRoom(source, giveRewards)
+function RemovePlayerFromRoom(source)
     local playerData = playerRooms[source]
     if not playerData then return end
     local roomId = playerData.roomId
     local room = rooms[roomId]
-    if giveRewards and room then
-        local finishPos = nil
-        for i, sid in ipairs(room.finishOrder) do
-            if sid == source then
-                finishPos = i
-                break
-            end
-        end
-        if finishPos then
-            GiveRewards(source, finishPos)
-        end
-    end
     if room then
         room.players[source] = nil
         room.playerCount = math.max(0, room.playerCount - 1)
@@ -291,7 +284,7 @@ function EndRace(roomId)
     end
     Citizen.CreateThread(function()
         for i, serverId in ipairs(playersToRemove) do
-            RemovePlayerFromRoom(serverId, false)
+            RemovePlayerFromRoom(serverId)
             if i % 10 == 0 then
                 Citizen.Wait(50)
             end
@@ -344,7 +337,6 @@ AddEventHandler('trisport:checkpointHit', function(checkpointIndex)
         raceData.finished = true
         finishCounters[roomId] = finishCounters[roomId] + 1
         local finishPos = finishCounters[roomId]
-        room.finishOrder[#room.finishOrder + 1] = source
         local timeStr = formatTime(raceData.checkpointTime)
         notify(source, string.format(Config.Messages.finished, finishPos, timeStr))
         GiveRewards(source, finishPos)
@@ -353,7 +345,7 @@ AddEventHandler('trisport:checkpointHit', function(checkpointIndex)
             time     = timeStr,
         })
         SetTimeout(3000, function()
-            RemovePlayerFromRoom(source, false)  
+            RemovePlayerFromRoom(source)
         end)
         print('[Trisport] Player ' .. GetPlayerName(source) .. ' finished #' .. finishPos .. ' in room ' .. roomId .. ' (time: ' .. timeStr .. ')')
         local allFinished = true
