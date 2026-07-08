@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trisport NUI Preview Tool</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1e1e1e;
+            color: #fff;
+        }
+
+        #controls {
+            width: 320px;
+            padding: 20px;
+            background: #252526;
+            border-right: 1px solid #333;
+            overflow-y: auto;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.5);
+            z-index: 10;
+        }
+
+        #nui-frame {
+            flex: 1;
+            border: none;
+            background: url('https://images.unsplash.com/photo-1547038577-323da56fc1f5?ixlib=rb-1.2.1&auto=format&fit=crop&w=1920&q=80') center/cover;
+        }
+
+        h2 {
+            margin-top: 0;
+            font-size: 18px;
+            color: #FFD700;
+            border-bottom: 1px solid #444;
+            padding-bottom: 10px;
+        }
+
+        h3 {
+            font-size: 14px;
+            color: #aaa;
+            margin: 20px 0 10px 0;
+        }
+
+        button {
+            display: block;
+            width: 100%;
+            margin-bottom: 8px;
+            padding: 10px;
+            cursor: pointer;
+            background: #333337;
+            color: white;
+            border: 1px solid #444;
+            border-radius: 4px;
+            text-align: left;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            background: #007acc;
+            border-color: #007acc;
+        }
+
+        .btn-group {
+            margin-bottom: 20px;
+        }
+
+        .instructions {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="controls">
+        <h2>Trisport NUI Preview</h2>
+        <p class="instructions">
+            หน้าต่างนี้ใช้สำหรับจำลองการส่งข้อมูลจากฝั่ง Lua ไปยัง HTML (NUI) เหมือนเวลาอยู่ในเกมจริง
+            กดปุ่มด้านล่างเพื่อจำลองสถานการณ์ต่างๆ
+        </p>
+
+        <div class="btn-group">
+            <h3>1. ก่อนเริ่มแข่ง</h3>
+            <button onclick="sendMsg({action: 'show', state: 'waiting', roomId: 2})">▶ Show Waiting Room (ห้อง
+                2)</button>
+            <button onclick="sendMsg({action: 'countdown', seconds: 3})">▶ Start Countdown (3 วิ)</button>
+        </div>
+
+        <div class="btn-group">
+            <h3>2. ระหว่างแข่ง</h3>
+            <button onclick="sendMsg({action: 'show', state: 'racing'})">▶ Show Racing HUD (ว่างเปล่า)</button>
+            <button onclick="updatePos(5)">▶ อัปเดตอันดับ: ที่ 5</button>
+            <button onclick="updatePos(3)">▶ อัปเดตอันดับ: แซงขึ้นที่ 3 (Overtake)</button>
+        </div>
+
+        <div class="btn-group">
+            <h3>3. ระบบ Boost</h3>
+            <button onclick="sendMsg({action: 'updateBoost', charges: 1, max: 1, active: false})">▶ Boost: Ready
+                (เก็บของได้)</button>
+            <button onclick="sendMsg({action: 'updateBoost', charges: 0, max: 1, active: true})">▶ Boost: Active!
+                (กำลังใช้)</button>
+            <button onclick="sendMsg({action: 'updateBoost', charges: 0, max: 1, active: false})">▶ Boost: Empty
+                (ไม่มีของ)</button>
+        </div>
+
+        <div class="btn-group">
+            <h3>4. จบเกม</h3>
+            <button onclick="sendMsg({action: 'finished', position: 1, time: '02:34'})">▶ Show Finish (ที่ 1)</button>
+            <button onclick="sendMsg({action: 'finished', position: 12, time: '03:15'})">▶ Show Finish (ที่ 12)</button>
+        </div>
+
+        <div class="btn-group">
+            <h3>5. ระบบ</h3>
+            <button onclick="sendMsg({action: 'hide'})">⏹ Hide All (ซ่อนทั้งหมด)</button>
+        </div>
+    </div>
+
+    <!-- ดึงไฟล์ index.html ตัวจริงมาแสดงใน iframe -->
+    <iframe id="nui-frame" src="../html/index.html"></iframe>
+
+    <script>
+        const frame = document.getElementById('nui-frame');
+
+        // ฟังก์ชันจำลองการส่งข้อความเหมือน FiveM ส่งให้ NUI
+        function sendMsg(data) {
+            frame.contentWindow.postMessage(data, '*');
+        }
+
+        // ข้อมูลจำลองสำหรับ Leaderboard
+        function updatePos(pos) {
+            sendMsg({
+                action: 'updatePosition',
+                position: pos || 3,
+                total: 60,
+                checkpoint: 5,
+                totalCp: 15,
+                raceTime: '01:45',
+                leaderboard: [
+                    { pos: 1, name: 'Somsak_Racing', cp: 6, time: '01:42' },
+                    { pos: 2, name: 'NongB', cp: 5, time: '01:44' },
+                    { pos: 3, name: 'Player (คุณ)', cp: 5, time: '01:45' },
+                    { pos: 4, name: 'Prayut', cp: 4, time: '01:50' },
+                    { pos: 5, name: 'NoobRacer', cp: 3, time: '02:01' }
+                ]
+            });
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trikila</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div id="trisport-container" class="hidden">
+
+        <div id="race-hud" class="glass-panel">
+            <div class="hud-header">
+                <div class="hud-logo">
+                    <span class="logo-icon">🏁</span>
+                    <span class="logo-text">TRIKILA RACING</span>
+                </div>
+                <div id="race-timer" class="timer">00:00</div>
+            </div>
+
+            <div class="hud-divider"></div>
+
+            <div class="hud-stat">
+                <span class="stat-label">POSITION</span>
+                <span class="stat-value">
+                    <span id="position-current" class="position-num">-</span>
+                    <span class="position-sep">/</span>
+                    <span id="position-total" class="position-total">-</span>
+                </span>
+            </div>
+
+            <div class="hud-stat">
+                <span class="stat-label">CHECKPOINT</span>
+                <span class="stat-value">
+                    <span id="checkpoint-current">0</span>
+                    <span class="position-sep">/</span>
+                    <span id="checkpoint-total">0</span>
+                </span>
+            </div>
+
+            <div class="progress-bar-container">
+                <div id="progress-bar" class="progress-bar" style="width: 0%"></div>
+            </div>
+
+            <div id="boost-section" class="hud-stat boost-section hidden">
+                <span class="stat-label">🚀 BOOST</span>
+                <span id="boost-status" class="boost-ready">READY</span>
+            </div>
+
+            <div class="hud-divider"></div>
+
+            <div id="leaderboard" class="leaderboard">
+                <div class="leaderboard-header">TOP 5</div>
+                <div id="leaderboard-body"></div>
+            </div>
+        </div>
+
+        <div id="overtake-popup" class="hidden">
+            <div class="overtake-text">OVERTAKE!</div>
+            <div class="overtake-pos">ขึ้นสู่อันดับ <span id="overtake-new-pos">1</span> <span
+                    class="overtake-arrow">▲</span></div>
+        </div>
+
+        <div id="countdown-overlay" class="hidden">
+            <div id="countdown-number" class="countdown-number">3</div>
+        </div>
+
+        <div id="finish-overlay" class="hidden">
+            <div class="finish-content">
+                <div class="finish-trophy">🏆</div>
+                <div class="finish-title">FINISH!</div>
+                <div class="finish-position">
+                    อันดับที่ <span id="finish-pos">1</span>
+                </div>
+                <div class="finish-time">
+                    เวลา: <span id="finish-time">00:00</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="waiting-overlay" class="hidden">
+            <div class="waiting-content glass-panel">
+                <div class="waiting-icon">🏁</div>
+                <div class="waiting-text">กำลังรอกิจกรรมเริ่ม...</div>
+                <div class="waiting-room">ห้อง <span id="waiting-room-id">1</span></div>
+                <div class="waiting-hint">กด <kbd>G</kbd> กลับเช็คพ้อย &nbsp;|&nbsp; พิมพ์ <kbd>/triout</kbd> ออกจากห้อง
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <audio id="sound-countdown" src="sounds/countdown.ogg" preload="auto"></audio>
+    <audio id="sound-checkpoint" src="sounds/checkpoint.ogg" preload="auto"></audio>
+    <audio id="sound-finish" src="sounds/finish.ogg" preload="auto"></audio>
+    <audio id="sound-boost" src="sounds/boost.ogg" preload="auto"></audio>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
