@@ -63,12 +63,15 @@ local function notifyAll(msg)
     if not Config.AnnounceGlobally then return end
     TriggerClientEvent('trisport:notify', -1, msg)
 end
----@param seconds number
+---@param ms number elapsed milliseconds
 ---@return string
-local function formatTime(seconds)
-    local mins = math.floor(seconds / 60)
-    local secs = math.floor(seconds % 60)
-    return string.format('%02d:%02d', mins, secs)
+local function formatTime(ms)
+    ms = math.max(0, math.floor(ms))
+    local totalSecs = math.floor(ms / 1000)
+    local mins = math.floor(totalSecs / 60)
+    local secs = totalSecs % 60
+    local cs   = math.floor((ms % 1000) / 10)
+    return string.format('%02d:%02d.%02d', mins, secs, cs)
 end
 ---@param roomId number
 ---@return table sorted list of {serverId, checkpoint, time, name}
@@ -125,7 +128,7 @@ local function broadcastPositions(roomId)
             checkpoint  = p.checkpoint,
             totalCp     = TOTAL_CHECKPOINTS,
             leaderboard = lbChanged and leaderboard or nil,
-            raceTime    = formatTime(os.time() - room.raceStartTime),
+            raceTime    = formatTime(GetGameTimer() - room.raceStartTime),
         })
     end
 end
@@ -139,7 +142,6 @@ function OpenRoom(roomId)
     room.players        = {}
     room.playerCount    = 0
     room.raceStartTime  = 0
-    room.nextSpawnIndex = 0
     room.gen            = (room.gen or 0) + 1
     room.lastLbSig      = nil
     finishCounters[roomId] = 0
@@ -197,14 +199,20 @@ function AddPlayerToRoom(source, roomId)
         originalCoords = coords,
         originalBucket = originalBucket,
     }
-    local spawnIndex = room.nextSpawnIndex
-    room.nextSpawnIndex = room.nextSpawnIndex + 1
+    -- หา grid slot ว่างต่ำสุด (คนออกจากห้องแล้ว index ถูกใช้ซ้ำ ไม่ไหลออกไปเรื่อยๆ)
+    local used = {}
+    for _, d in pairs(room.players) do
+        if d.spawnIndex then used[d.spawnIndex] = true end
+    end
+    local spawnIndex = 0
+    while used[spawnIndex] do spawnIndex = spawnIndex + 1 end
     local spawnPos = getSpawnPosition(spawnIndex)
     room.players[source] = {
         checkpoint     = 0,
         checkpointTime = 0,
         startTime      = 0,
         finished       = false,
+        spawnIndex     = spawnIndex,
         spawnPos       = spawnPos,
         name           = GetPlayerName(source) or 'Unknown',
         respawnCooldown = 0,
@@ -249,7 +257,7 @@ function StartRace(roomId)
     SetTimeout(Config.CountdownSeconds * 1000, function()
         if room.state ~= 'countdown' or room.gen ~= myGen then return end
         room.state = 'racing'
-        room.raceStartTime = os.time()
+        room.raceStartTime = GetGameTimer()
         local startTime = room.raceStartTime
         -- รวม  2 ลูปเป็นลูปเดียว ลด overhead
         for serverId, data in pairs(room.players) do
@@ -319,6 +327,11 @@ AddEventHandler('trisport:checkpointHit', function(checkpointIndex)
     local raceData = room.players[source]
     if not raceData then return end
     if raceData.finished then return end
+    if type(checkpointIndex) ~= 'number' then return end
+    -- rate-limit: legit hit ห่างกันหลายวินาที (client wait 500ms) จำกัด 250ms กัน spam ยิง GetEntityCoords
+    local nowMs = GetGameTimer()
+    if nowMs - (raceData.lastCpAttempt or 0) < 250 then return end
+    raceData.lastCpAttempt = nowMs
     local expectedCp = (raceData.checkpoint or 0) + 1
     if checkpointIndex ~= expectedCp then return end
     if checkpointIndex < 1 or checkpointIndex > TOTAL_CHECKPOINTS then return end
@@ -331,7 +344,7 @@ AddEventHandler('trisport:checkpointHit', function(checkpointIndex)
         return
     end
     raceData.checkpoint     = checkpointIndex
-    raceData.checkpointTime = os.time() - raceData.startTime
+    raceData.checkpointTime = GetGameTimer() - raceData.startTime
     notify(source, string.format(Config.Messages.checkpointHit, checkpointIndex, TOTAL_CHECKPOINTS))
     if checkpointIndex == TOTAL_CHECKPOINTS then
         raceData.finished = true
@@ -370,8 +383,8 @@ AddEventHandler('trisport:requestRespawn', function()
     if not room or room.state ~= 'racing' then return end
     local raceData = room.players[source]
     if not raceData or raceData.finished then return end
-    local now = os.time()
-    if now - (raceData.respawnCooldown or 0) < 2 then return end
+    local now = GetGameTimer()
+    if now - (raceData.respawnCooldown or 0) < 2000 then return end
     raceData.respawnCooldown = now
     local cpIndex = raceData.checkpoint or 0
     local respawnCoords
