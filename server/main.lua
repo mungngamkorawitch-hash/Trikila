@@ -414,40 +414,44 @@ AddEventHandler('playerDropped', function(reason)
     end
 end)
 if Config.AutoStartEnabled then
-    local autoStartTriggered = false
+    local triggeredMap = {}
     local lastCheckMinute = -1
     Citizen.CreateThread(function()
         while true do
-            Citizen.Wait(30000)  
+            Citizen.Wait(30000)
             local currentTime = os.date('%H:%M')
             local currentMinute = os.date('%M')
             if currentMinute ~= lastCheckMinute then
-                if autoStartTriggered and currentTime ~= Config.AutoStartTime then
-                    autoStartTriggered = false
+                for _, scheduledTime in ipairs(Config.AutoStartTimes) do
+                    if triggeredMap[scheduledTime] and currentTime ~= scheduledTime then
+                        triggeredMap[scheduledTime] = false
+                    end
                 end
                 lastCheckMinute = currentMinute
             end
-            if currentTime == Config.AutoStartTime and not autoStartTriggered then
-                autoStartTriggered = true
-                print('[Trisport] Auto-start triggered at ' .. currentTime)
-                for i = 1, Config.MaxRooms do
-                    OpenRoom(i)
-                end
-                notifyAll(string.format(Config.Messages.eventOpening, Config.MaxPlayersPerRoom))
-                SetTimeout(Config.JoinWindowSeconds * 1000, function()
+            for _, scheduledTime in ipairs(Config.AutoStartTimes) do
+                if currentTime == scheduledTime and not triggeredMap[scheduledTime] then
+                    triggeredMap[scheduledTime] = true
+                    print('[Trisport] Auto-start triggered at ' .. currentTime)
                     for i = 1, Config.MaxRooms do
-                        if rooms[i].state == 'open' and rooms[i].playerCount > 0 then
-                            StartRace(i)
-                        elseif rooms[i].state == 'open' and rooms[i].playerCount == 0 then
-                            CloseRoom(i)
-                            print('[Trisport] Room ' .. i .. ' closed (no players)')
-                        end
+                        OpenRoom(i)
                     end
-                end)
+                    notifyAll(string.format(Config.Messages.eventOpening, Config.MaxPlayersPerRoom))
+                    SetTimeout(Config.JoinWindowSeconds * 1000, function()
+                        for i = 1, Config.MaxRooms do
+                            if rooms[i].state == 'open' and rooms[i].playerCount > 0 then
+                                StartRace(i)
+                            elseif rooms[i].state == 'open' and rooms[i].playerCount == 0 then
+                                CloseRoom(i)
+                                print('[Trisport] Room ' .. i .. ' closed (no players)')
+                            end
+                        end
+                    end)
+                end
             end
         end
     end)
-    print('[Trisport] Auto-start enabled — scheduled at ' .. Config.AutoStartTime)
+    print('[Trisport] Auto-start enabled — scheduled at: ' .. table.concat(Config.AutoStartTimes, ', '))
 end
 exports('openRoom', OpenRoom)
 exports('closeRoom', CloseRoom)
