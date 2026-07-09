@@ -302,12 +302,18 @@ Citizen.CreateThread(function()
 end)
 Citizen.CreateThread(function()
     while true do
-        if inRace then
-            if IsControlJustPressed(0, 47) then
+        if inRoom or inRace then
+            DisableControlAction(0, 75, true)  -- Disable F (Exit Vehicle)
+            DisableControlAction(0, 24, true)  -- Disable Attack
+            DisableControlAction(0, 25, true)  -- Disable Aim
+            DisableControlAction(0, 37, true)  -- Disable Weapon Wheel
+            
+            if inRace and IsControlJustPressed(0, 47) then -- G
                 TriggerServerEvent('trisport:requestRespawn')
                 Citizen.Wait(2000)  
+            else
+                Citizen.Wait(0)
             end
-            Citizen.Wait(100)  
         else
             Citizen.Wait(1000)  
         end
