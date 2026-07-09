@@ -127,11 +127,9 @@ function StartBoostActivation()
                         })
                         SetTimeout(math.floor(Config.BoostDuration * 1000), function()
                             boostActive = false
-                            local p = PlayerPedId()
-                            local v = GetVehiclePedIsIn(p, false)
-                            if v and v ~= 0 then
-                                SetVehicleEnginePowerMultiplier(v, 1.0)
-                                SetVehicleEngineTorqueMultiplier(v, 1.0)
+                            if veh and DoesEntityExist(veh) then
+                                SetVehicleEnginePowerMultiplier(veh, 1.0)
+                                SetVehicleEngineTorqueMultiplier(veh, 1.0)
                             end
                             AnimpostfxStop('RaceTurbo')
                             StopGameplayCamShaking(true)
