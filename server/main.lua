@@ -114,20 +114,20 @@ local function broadcastPositions(roomId)
             cp   = p.checkpoint,
             time = timeStr,
         }
-        sigParts[i] = p.serverId .. ':' .. p.checkpoint .. ':' .. timeStr
+        sigParts[i] = p.serverId .. ':' .. p.checkpoint
     end
-    -- Fix 7: include raceTime in sig so unchanged frames are skipped
     local raceTimeStr = formatTime(GetGameTimer() - room.raceStartTime)
-    local sig = table.concat(sigParts, '|') .. '|t=' .. raceTimeStr
-    if sig == room.lastLbSig then return end  -- Fix 7: nothing changed, skip broadcast
-    room.lastLbSig = sig
+    local lbSig = table.concat(sigParts, '|')
+    local lbChanged = lbSig ~= room.lastLbSig
+    if lbChanged then room.lastLbSig = lbSig end
+    local leaderboardPayload = lbChanged and leaderboardObj or nil
     for rank, p in ipairs(positions) do
         TriggerClientEvent('trisport:updatePosition', p.serverId, {
             position    = rank,
             total       = totalPlayers,
             checkpoint  = p.checkpoint,
             totalCp     = TOTAL_CHECKPOINTS,
-            leaderboard = leaderboardObj,
+            leaderboard = leaderboardPayload,
             raceTime    = raceTimeStr,
         })
     end
@@ -470,9 +470,7 @@ if Config.AutoStartEnabled then
 end
 -- Fix 5: Server-authoritative boost pickup validation
 local playerBoostData = {}  -- [source] = { cooldown=ms, collectedBoosts={} }
-AddEventHandler('trisport:raceStart', function()
-    -- called per-room from StartRace; clear per-player boost state for all players in that room
-end)
+
 RegisterNetEvent('trisport:requestBoost')
 AddEventHandler('trisport:requestBoost', function(markerIndex)
     local source = source

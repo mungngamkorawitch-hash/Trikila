@@ -55,19 +55,21 @@ end)
 function StartBoostCollection()
     Citizen.CreateThread(function()
         while isRacing and Config.BoostEnabled do
+            if boostCharges >= Config.BoostMaxCharges then
+                Citizen.Wait(500)
+                goto continue
+            end
             local ped = PlayerPedId()
             local playerPos = GetEntityCoords(ped)
             local closestDist = 999.0
             for i, marker in ipairs(boostMarkers) do
                 if not collectedBoosts[i] then
                     local dist = #(playerPos - marker.coords)
-                    if dist < closestDist then
-                        closestDist = dist
-                    end
-                    -- Fix 5: client detects proximity then asks SERVER to validate & grant
-                    if dist < (marker.radius or 4.0) and boostCharges < Config.BoostMaxCharges then
-                        collectedBoosts[i] = true  -- optimistic flag (server is authoritative)
+                    if dist < closestDist then closestDist = dist end
+                    if dist < (marker.radius or 4.0) then
+                        collectedBoosts[i] = true
                         TriggerServerEvent('trisport:requestBoost', i)
+                        break
                     end
                 end
             end
@@ -78,6 +80,7 @@ function StartBoostCollection()
             else
                 Citizen.Wait(50)
             end
+            ::continue::
         end
     end)
 end
