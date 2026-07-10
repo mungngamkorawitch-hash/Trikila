@@ -142,7 +142,7 @@ function StartBoostActivation()
                     EndTextCommandThefeedPostTicker(false, false)
                 end
             end
-            Citizen.Wait(100)
+            Citizen.Wait(0)
         end
     end)
 end

@@ -9,6 +9,7 @@ local checkpointBlip   = nil
 local finishBlip       = nil
 local cachedPed        = 0
 local cpDetectionActive = false
+local lastRespawnPress = 0
 local function refreshPed()
     cachedPed = PlayerPedId()
     return cachedPed
@@ -307,23 +308,17 @@ Citizen.CreateThread(function()
             DisableControlAction(0, 24, true)
             DisableControlAction(0, 25, true)
             DisableControlAction(0, 37, true)
+            
+            if inRace and IsControlJustPressed(0, 47) then
+                local now = GetGameTimer()
+                if now - lastRespawnPress > 2000 then
+                    lastRespawnPress = now
+                    TriggerServerEvent('trisport:requestRespawn')
+                end
+            end
             Citizen.Wait(0)
         else
             Citizen.Wait(500)
-        end
-    end
-end)
-Citizen.CreateThread(function()
-    while true do
-        if inRace then
-            if IsControlJustPressed(0, 47) then
-                TriggerServerEvent('trisport:requestRespawn')
-                Citizen.Wait(2000)
-            else
-                Citizen.Wait(100)
-            end
-        else
-            Citizen.Wait(1000)
         end
     end
 end)
