@@ -70,6 +70,7 @@ Config.BoostMarkers = {
 }
 Config.ShowLeaderboardTop    = 5          
 Config.UIUpdateInterval      = 1000       
+Config.CheckpointMinTimeSec  = 5          -- Fix 6: min seconds between consecutive checkpoints (anti-speedhack)
 Config.UseCustomSounds       = false      
 Config.AdminPermission       = 'trisport.admin'  
 Config.Messages = {

@@ -129,6 +129,10 @@ RegisterCommand('trievent', function(source, args, rawCommand)
     end)
 end, false)
 RegisterCommand('trihost', function(source, args, rawCommand)
+    if source > 0 and not IsPlayerAceAllowed(source, Config.AdminPermission) then
+        TriggerClientEvent('trisport:notify', source, Config.Messages.noPermission)
+        return
+    end
     for i = 1, Config.MaxRooms do
         OpenRoom(i)
     end

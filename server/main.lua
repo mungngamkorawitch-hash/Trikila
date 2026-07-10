@@ -116,18 +116,19 @@ local function broadcastPositions(roomId)
         }
         sigParts[i] = p.serverId .. ':' .. p.checkpoint .. ':' .. timeStr
     end
-    local sig = table.concat(sigParts, '|')
-    local lbChanged = sig ~= room.lastLbSig
+    -- Fix 7: include raceTime in sig so unchanged frames are skipped
+    local raceTimeStr = formatTime(GetGameTimer() - room.raceStartTime)
+    local sig = table.concat(sigParts, '|') .. '|t=' .. raceTimeStr
+    if sig == room.lastLbSig then return end  -- Fix 7: nothing changed, skip broadcast
     room.lastLbSig = sig
-    local leaderboardPayload = lbChanged and leaderboardObj or nil
     for rank, p in ipairs(positions) do
         TriggerClientEvent('trisport:updatePosition', p.serverId, {
             position    = rank,
             total       = totalPlayers,
             checkpoint  = p.checkpoint,
             totalCp     = TOTAL_CHECKPOINTS,
-            leaderboard = leaderboardPayload,
-            raceTime    = formatTime(GetGameTimer() - room.raceStartTime),
+            leaderboard = leaderboardObj,
+            raceTime    = raceTimeStr,
         })
     end
 end
@@ -151,6 +152,7 @@ end
 function CloseRoom(roomId)
     local room = rooms[roomId]
     if not room then return end
+    local closingGen = room.gen  -- Fix 3: capture gen before async work
     local playersToRemove = {}
     for serverId, _ in pairs(room.players) do
         playersToRemove[#playersToRemove + 1] = serverId
@@ -160,10 +162,11 @@ function CloseRoom(roomId)
     room.playerCount = 0
     finishCounters[roomId] = 0
     Citizen.CreateThread(function()
+        if room.gen ~= closingGen then return end  -- Fix 3: skip if room was reopened
         for i, serverId in ipairs(playersToRemove) do
-            RemovePlayerFromRoom(serverId)  
+            RemovePlayerFromRoom(serverId)
             if i % 10 == 0 then
-                Citizen.Wait(50) 
+                Citizen.Wait(50)
             end
         end
     end)
@@ -234,12 +237,18 @@ function RemovePlayerFromRoom(source)
     if room then
         room.players[source] = nil
         room.playerCount = math.max(0, room.playerCount - 1)
+        -- Fix 4: unified empty-room-mid-race check in ONE place
+        if room.state == 'racing' and room.playerCount == 0 then
+            print('[Trisport] Room ' .. roomId .. ' is empty mid-race, ending immediately')
+            EndRace(roomId)
+        end
     end
     SetPlayerRoutingBucket(source, playerData.originalBucket or 0)
     TriggerClientEvent('trisport:leaveRoom', source, {
         coords = { x = playerData.originalCoords.x, y = playerData.originalCoords.y, z = playerData.originalCoords.z },
     })
     playerRooms[source] = nil
+    playerBoostData[source] = nil  -- Fix 5: clear server-side boost state on leave
 end
 ---@param roomId number
 function StartRace(roomId)
@@ -262,6 +271,7 @@ function StartRace(roomId)
             data.checkpoint     = 0
             data.checkpointTime = 0
             data.finished       = false
+            playerBoostData[serverId] = { cooldown = 0, collected = {} }  -- Fix: reset boost per race-gen
             TriggerClientEvent('trisport:raceStart', serverId)
         end
         notifyRoom(roomId, Config.Messages.raceStarted)
@@ -327,13 +337,27 @@ AddEventHandler('trisport:checkpointHit', function(checkpointIndex)
     if raceData.finished then return end
     if type(checkpointIndex) ~= 'number' then return end
     local nowMs = GetGameTimer()
+    -- Rate-limit (250 ms per attempt)
     if nowMs - (raceData.lastCpAttempt or 0) < 250 then return end
     raceData.lastCpAttempt = nowMs
     local expectedCp = (raceData.checkpoint or 0) + 1
     if checkpointIndex ~= expectedCp then return end
     if checkpointIndex < 1 or checkpointIndex > TOTAL_CHECKPOINTS then return end
+    -- Fix 6: player must be inside a vehicle
+    local ped = GetPlayerPed(source)
+    if not IsPedInAnyVehicle(ped, false) then
+        print('[Trisport] CHEAT DETECTED: ' .. GetPlayerName(source) .. ' hit checkpoint ' .. checkpointIndex .. ' on foot')
+        return
+    end
+    -- Fix 6: minimum time between consecutive checkpoints
+    local minGapMs = (Config.CheckpointMinTimeSec or 0) * 1000
+    if minGapMs > 0 and (raceData.lastCpTime or 0) > 0 and (nowMs - raceData.lastCpTime) < minGapMs then
+        print('[Trisport] CHEAT DETECTED: ' .. GetPlayerName(source) .. ' checkpoint ' .. checkpointIndex .. ' too fast (' .. (nowMs - raceData.lastCpTime) .. 'ms)')
+        return
+    end
+    raceData.lastCpTime = nowMs
     local cpData    = Config.Checkpoints[checkpointIndex]
-    local playerPos = GetEntityCoords(GetPlayerPed(source))
+    local playerPos = GetEntityCoords(ped)
     local dist      = #(playerPos - cpData.coords)
     if dist > (cpData.radius * 1.5) then
         print('[Trisport] CHEAT DETECTED: ' .. GetPlayerName(source) .. ' fake checkpoint ' .. checkpointIndex .. ' (dist: ' .. dist .. ')')
@@ -354,7 +378,7 @@ AddEventHandler('trisport:checkpointHit', function(checkpointIndex)
             time     = timeStr,
         })
         SetTimeout(3000, function()
-            RemovePlayerFromRoom(source)  
+            RemovePlayerFromRoom(source)
         end)
         print('[Trisport] Player ' .. GetPlayerName(source) .. ' finished #' .. finishPos .. ' in room ' .. roomId .. ' (time: ' .. timeStr .. ')')
         local allFinished = true
@@ -380,7 +404,7 @@ AddEventHandler('trisport:requestRespawn', function()
     local raceData = room.players[source]
     if not raceData or raceData.finished then return end
     local now = GetGameTimer()
-    if now - (raceData.respawnCooldown or 0) < 2000 then return end
+    if now - (raceData.respawnCooldown or 0) < 120000 then return end  -- Fix 2: 2-minute cooldown
     raceData.respawnCooldown = now
     local cpIndex = raceData.checkpoint or 0
     local respawnCoords
@@ -400,17 +424,8 @@ AddEventHandler('playerDropped', function(reason)
     local source = source
     if playerRooms[source] then
         local roomId = playerRooms[source].roomId
-        local room = rooms[roomId]
-        if room then
-            room.players[source] = nil
-            room.playerCount = math.max(0, room.playerCount - 1)
-            if room.state == 'racing' and room.playerCount == 0 then
-                print('[Trisport] Room ' .. roomId .. ' is empty mid-race, ending immediately')
-                EndRace(roomId)
-            end
-        end
-        playerRooms[source] = nil
         print('[Trisport] Player ' .. source .. ' disconnected from room ' .. roomId .. ' (' .. reason .. ')')
+        RemovePlayerFromRoom(source)  -- Fix 4: reuse unified path (handles empty-room check)
     end
 end)
 if Config.AutoStartEnabled then
@@ -453,6 +468,46 @@ if Config.AutoStartEnabled then
     end)
     print('[Trisport] Auto-start enabled — scheduled at: ' .. table.concat(Config.AutoStartTimes, ', '))
 end
+-- Fix 5: Server-authoritative boost pickup validation
+local playerBoostData = {}  -- [source] = { cooldown=ms, collectedBoosts={} }
+AddEventHandler('trisport:raceStart', function()
+    -- called per-room from StartRace; clear per-player boost state for all players in that room
+end)
+RegisterNetEvent('trisport:requestBoost')
+AddEventHandler('trisport:requestBoost', function(markerIndex)
+    local source = source
+    if not Config.BoostEnabled then return end
+    local playerData = playerRooms[source]
+    if not playerData then return end
+    local roomId = playerData.roomId
+    local room = rooms[roomId]
+    if not room or room.state ~= 'racing' then return end
+    local raceData = room.players[source]
+    if not raceData or raceData.finished then return end
+    if type(markerIndex) ~= 'number' then return end
+    local marker = Config.BoostMarkers and Config.BoostMarkers[markerIndex]
+    if not marker then return end
+    -- Init per-player boost tracking
+    if not playerBoostData[source] then
+        playerBoostData[source] = { cooldown = 0, collected = {} }
+    end
+    local bdata = playerBoostData[source]
+    local nowMs = GetGameTimer()
+    if bdata.collected[markerIndex] then return end  -- already taken
+    if nowMs < bdata.cooldown then return end  -- global collection cooldown
+    -- Server-side position validation
+    local ped = GetPlayerPed(source)
+    local pos = GetEntityCoords(ped)
+    local dist = #(pos - marker.coords)
+    if dist > (marker.radius or 4.0) * 2.0 then
+        print('[Trisport] CHEAT: ' .. GetPlayerName(source) .. ' fake boost pickup #' .. markerIndex .. ' (dist: ' .. dist .. ')')
+        return
+    end
+    -- Grant boost
+    bdata.collected[markerIndex] = true
+    bdata.cooldown = nowMs + (Config.BoostCooldown or 5) * 1000
+    TriggerClientEvent('trisport:boostGranted', source, markerIndex)
+end)
 exports('openRoom', OpenRoom)
 exports('closeRoom', CloseRoom)
 exports('startRace', StartRace)

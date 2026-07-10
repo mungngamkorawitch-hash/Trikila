@@ -57,11 +57,6 @@ function StartBoostCollection()
         while isRacing and Config.BoostEnabled do
             local ped = PlayerPedId()
             local playerPos = GetEntityCoords(ped)
-            local now = GetGameTimer() / 1000.0
-            if now < boostCooldown then
-                Citizen.Wait(200)
-                goto continue
-            end
             local closestDist = 999.0
             for i, marker in ipairs(boostMarkers) do
                 if not collectedBoosts[i] then
@@ -69,23 +64,10 @@ function StartBoostCollection()
                     if dist < closestDist then
                         closestDist = dist
                     end
-                    if dist < (marker.radius or 4.0) then
-                        if boostCharges < Config.BoostMaxCharges then
-                            boostCharges = boostCharges + 1
-                            collectedBoosts[i] = true
-                            boostCooldown = now + Config.BoostCooldown
-                            BeginTextCommandThefeedPost('STRING')
-                            AddTextComponentSubstringPlayerName(Config.Messages.boostCollected)
-                            EndTextCommandThefeedPostTicker(false, false)
-                            PlaySoundFrontend(-1, 'PICK_UP_COLLECTIBLE', 'HUD_FRONTEND_DEFAULT_SOUNDSET', false)
-                            SendNUIMessage({
-                                action  = 'updateBoost',
-                                charges = boostCharges,
-                                max     = Config.BoostMaxCharges,
-                                active  = boostActive,
-                            })
-                            break
-                        end
+                    -- Fix 5: client detects proximity then asks SERVER to validate & grant
+                    if dist < (marker.radius or 4.0) and boostCharges < Config.BoostMaxCharges then
+                        collectedBoosts[i] = true  -- optimistic flag (server is authoritative)
+                        TriggerServerEvent('trisport:requestBoost', i)
                     end
                 end
             end
@@ -96,10 +78,27 @@ function StartBoostCollection()
             else
                 Citizen.Wait(50)
             end
-            ::continue::
         end
     end)
 end
+-- Fix 5: server confirmed boost pickup — now grant the charge
+RegisterNetEvent('trisport:boostGranted')
+AddEventHandler('trisport:boostGranted', function(markerIndex)
+    if not isRacing then return end
+    if boostCharges >= Config.BoostMaxCharges then return end
+    boostCharges = boostCharges + 1
+    collectedBoosts[markerIndex] = true
+    PlaySoundFrontend(-1, 'PICK_UP_COLLECTIBLE', 'HUD_FRONTEND_DEFAULT_SOUNDSET', false)
+    BeginTextCommandThefeedPost('STRING')
+    AddTextComponentSubstringPlayerName(Config.Messages.boostCollected)
+    EndTextCommandThefeedPostTicker(false, false)
+    SendNUIMessage({
+        action  = 'updateBoost',
+        charges = boostCharges,
+        max     = Config.BoostMaxCharges,
+        active  = boostActive,
+    })
+end)
 function StartBoostActivation()
     Citizen.CreateThread(function()
         while isRacing and Config.BoostEnabled do
