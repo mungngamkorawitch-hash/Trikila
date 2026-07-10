@@ -1,11 +1,9 @@
 local isRacing          = false
 local boostCharges      = 0
 local boostActive       = false
-local boostEndTime      = 0
-local boostCooldown     = 0
 local boostMarkers      = {}
 local collectedBoosts   = {}
-local boostThreadsActive= false  
+local boostThreadsActive= false
 RegisterNetEvent('trisport:raceStart')
 AddEventHandler('trisport:raceStart', function()
     if not Config.BoostEnabled then return end
@@ -13,8 +11,6 @@ AddEventHandler('trisport:raceStart', function()
     boostMarkers    = Config.BoostMarkers or {}
     boostCharges    = 0
     boostActive     = false
-    boostEndTime    = 0
-    boostCooldown   = 0
     collectedBoosts = {}
     if #boostMarkers > 0 and not boostThreadsActive then
         boostThreadsActive = true
@@ -29,8 +25,6 @@ AddEventHandler('trisport:leaveRoom', function()
     boostThreadsActive  = false
     boostCharges        = 0
     boostActive         = false
-    boostEndTime        = 0
-    boostCooldown       = 0
     boostMarkers        = {}
     collectedBoosts     = {}
     local ped = PlayerPedId()
@@ -109,7 +103,6 @@ function StartBoostActivation()
                 if boostCharges > 0 and not boostActive then
                     boostCharges = boostCharges - 1
                     boostActive = true
-                    boostEndTime = GetGameTimer() / 1000.0 + Config.BoostDuration
                     local ped = PlayerPedId()
                     local veh = GetVehiclePedIsIn(ped, false)
                     if veh and veh ~= 0 then
