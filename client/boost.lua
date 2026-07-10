@@ -78,7 +78,7 @@ function StartBoostCollection()
         end
     end)
 end
--- Fix 5: server confirmed boost pickup — now grant the charge
+
 RegisterNetEvent('trisport:boostGranted')
 AddEventHandler('trisport:boostGranted', function(markerIndex)
     if not isRacing then return end

@@ -8,9 +8,8 @@ shared_scripts {
     'config.lua',
 }
 server_scripts {
-    '@oxmysql/lib/MySQL.lua',
     'server/main.lua',
-    'server/rewards.lua',  
+    'server/rewards.lua',
     'server/commands.lua',
 }
 client_scripts {

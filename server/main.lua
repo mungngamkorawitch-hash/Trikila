@@ -2,6 +2,7 @@ local ESX = exports['es_extended']:getSharedObject()
 rooms = {}
 playerRooms = {}
 finishCounters = {}
+local playerBoostData = {}
 local TOTAL_CHECKPOINTS = #Config.Checkpoints
 local function initRooms()
     for i = 1, Config.MaxRooms do
@@ -468,9 +469,6 @@ if Config.AutoStartEnabled then
     end)
     print('[Trisport] Auto-start enabled — scheduled at: ' .. table.concat(Config.AutoStartTimes, ', '))
 end
--- Fix 5: Server-authoritative boost pickup validation
-local playerBoostData = {}  -- [source] = { cooldown=ms, collectedBoosts={} }
-
 RegisterNetEvent('trisport:requestBoost')
 AddEventHandler('trisport:requestBoost', function(markerIndex)
     local source = source
